@@ -183,11 +183,11 @@ args="
     --checkpoint-activations \
     --tensorboard-dir $OUTPUT_DIR \
     $CPU_OPTIM $ds_args \
-    --no-masked-softmax-fusion \
-    --no-bias-dropout-fusion \
-    --no-bias-gelu-fusion \
     --exit-interval 5000 
 "
+    #--no-masked-softmax-fusion \
+    #--no-bias-dropout-fusion \
+    #--no-bias-gelu-fusion \
 
 deepspeed --launcher="SLURM" --num_nodes=${SLURM_NNODES} --num_gpus=${SLURM_GPUS} \
  --no_ssh_check --hostfile ${HF} --master_addr=${master_ip} --no_local_rank \
