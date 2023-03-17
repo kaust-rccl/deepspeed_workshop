@@ -1,0 +1,71 @@
+diff --git a/megatron/initialize.py b/megatron/initialize.py
+index 4b7e11a..1d453ef 100644
+--- a/megatron/initialize.py
++++ b/megatron/initialize.py
+@@ -135,18 +135,21 @@ def _compile_dependencies():
+     # Always build on rank zero first.
+     if _is_rank_0():
+         start_time = time.time()
+-        print('> compiling and loading fused kernels ...', flush=True)
++        print(f'> compiling and loading fused kernels ...', flush=True)
+         if get_accelerator().device_count() > 0: # Skip when CPU-only
+-            fused_kernels.load(args)
+-        torch.distributed.barrier()
++          fused_kernels.load(args)
++          torch.distributed.barrier()
+     else:
++        print(f'Helloworld from {args.rank} {args.local_rank}',flush=True)
+         torch.distributed.barrier()
+         fused_kernels.load(args)
+     # Simple barrier to make sure all ranks have passed the
+     # compilation phase successfully before moving on to the
+     # rest of the program. We think this might ensure that
+     # the lock is released.
++    print(f'{args.rank} {args.local_rank} Helloworld here 1')
+     torch.distributed.barrier()
++    print(f'{args.rank} {args.local_rank} Helloworld here 2')
+     if _is_rank_0():
+         print('>>> done with compiling and loading fused kernels. '
+               'Compilation time: {:.3f} seconds'.format(
+@@ -195,34 +198,14 @@ def _initialize_distributed():
+                   'skipping initialization ...', flush=True)
+         args.rank = torch.distributed.get_rank()
+         args.world_size = torch.distributed.get_world_size()
+-
+     else:
+-        if args.rank == 0:
+-            print('> initializing torch distributed ...', flush=True)
+-        # Manually set the device ids.
+-        if device_count > 0:
+-            device = args.rank % device_count
+-            if args.local_rank is not None:
+-                assert args.local_rank == device, \
+-                    'expected local-rank to be the same as rank % device-count.'
+-            else:
+-                args.local_rank = device
+-
+-            get_accelerator().set_device(device) # only do so when device_count > 0
+-
+-        # Call the init process
+-        init_method = 'tcp://'
+-        master_ip = os.getenv('MASTER_ADDR', 'localhost')
+-        master_port = os.getenv('MASTER_PORT', '6000')
+-        init_method += master_ip + ':' + master_port
+-
+-        if args.deepspeed or args.ds_inference:
+-            deepspeed.init_distributed()
+-        else:
+-            torch.distributed.init_process_group(
+-                backend=args.distributed_backend,
+-                world_size=args.world_size, rank=args.rank,
+-                init_method=init_method)
++        deepspeed.init_distributed()
++        args.rank=int(os.environ['RANK'])
++        args.local_rank=int(os.environ['LOCAL_RANK'])
++        args.world_size=int(os.environ['WORLD_SIZE'])
++        print(f'Hi, I am {args.rank} and pinning GPU {args.local_rank}')
++        get_accelerator().set_device(args.local_rank) # only do so when device_count > 0
++
+     # Set the tensor model-parallel, pipeline model-parallel, and
+     # data-parallel communicators.
+     if device_count > 0:
