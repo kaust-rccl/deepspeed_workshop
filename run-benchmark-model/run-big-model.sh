@@ -104,8 +104,10 @@ ds_args=" --deepspeed_config=$DS_CONFIG ${ds_args}"
 ds_args=" --zero-stage=$ZERO_STAGE ${ds_args}"
 ds_args=" --deepspeed-activation-checkpointing ${ds_args}"
 
-deepspeed --launcher="SLURM" --num_nodes=${SLURM_NNODES} --num_gpus=${SLURM_GPUS} --launcher_args='--gpus-per-node=1' \
- --no_ssh_check --hostfile ${HF} --master_addr=${master_ip} --no_local_rank \
+#deepspeed --launcher="SLURM" --num_nodes=${SLURM_NNODES} --num_gpus=${SLURM_GPUS} --launcher_args='--gpus-per-node=2' \
+# --no_ssh_check --hostfile ${HF} --master_addr=${master_ip} --no_local_rank \
+export MASTER_PORT=28004
+srun -n ${SLURM_NTASKS} -N ${SLURM_NNODES} python \
     pretrain_gpt.py --tensor-model-parallel-size $TP \
     --pipeline-model-parallel-size $PP \
     --num-layers $NLAYERS \
