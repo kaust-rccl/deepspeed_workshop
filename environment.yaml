@@ -1,0 +1,28 @@
+name: deepspeed
+channels:
+ - pytorch
+ - nvidia
+ - conda-forge
+
+dependencies:
+ - python=3.8
+ - gcc=12.2.0
+ - gxx=12.2.0
+ - pip
+ - cudatoolkit=11.7
+ - cudatoolkit-dev=11.7
+ - openmpi=4.1.5
+ - ucx=1.13.1
+ - mpi4py
+ - pip:
+   - torch==1.13.1
+   - torchvision==0.14.1
+   - git+https://github.com/microsoft/DeepSpeed.git@master
+   - transformers==4.27.1
+   - datasets==2.10.1 
+   - fire==0.4.0
+   - pytz==2021.1
+   - loguru==0.5.3
+   - sh==1.14.2
+   - pytest==6.2.5
+   - tqdm==4.62.3

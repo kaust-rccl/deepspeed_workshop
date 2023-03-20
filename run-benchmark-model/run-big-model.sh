@@ -1,59 +1,13 @@
 #!/bin/bash
-#SBATCH --job-name=g4
-#SBATCH --gpus=8
-#SBATCH --gpus-per-node=4
-#SBATCH --nodes=2
-#SBATCH --ntasks=8
-#SBATCH --cpus-per-task=15
-#SBATCH --time=00:15:00
-#SBATCH --constraint=a100
-#SBATCH --reservation=A100
-#SBATCH --account=a100_training_acc 
-#SBATCH --partition=a100_training
+set -ex
 
-echo "------- JOB Configuration ---------"
-echo "scontrol show job ${SLURM_JOBID}"
-scontrol show job ${SLURM_JOBID}
+data_options=" \
+         --vocab-file ${VOCAB_PATH} \
+         --merge-file ${MERGE_PATH} \
+         --data-path ${DATA_PATH} \
+         --data-impl mmap"
 
-echo "------- GPU Configuration ---------"
-echo "nvidia-smi -L"
-nvidia-smi -L
-
-echo "------- NVLink Configuration ------"
-echo "nvidia-smi topo -m"
-nvidia-smi topo -m
-
-echo "------- Infiniband Configuration --"
-echo "ibv_devinfo"
-ibv_devinfo
-
-
-module load dl
-module load deepspeed/0.8.3
-module load apex/22.03
-module list
-
-export NCCL_DEBUG=INFO
-export NCCL_TREE_THRESHOLD=0 
-export NCCL_SOCKET_IFNAME=ib0
-export NCCL_NET_GDR_LEVEL=4
-export NCCL_TOPO_DUMP_FILE=./nccl_dump.log.${SLURM_JOB_NAME}
-export MAX_JOBS=${SLURM_CPUS_PER_TASK}
-rm hostfile
-nodes=$(scontrol show hostnames "$SLURM_JOB_NODELIST")
-nodes_array=($nodes)
-
-for ((i = 0; i < ${SLURM_NNODES}; i++)); do
-   node_i=${nodes_array[$i]}
-   echo $node_i slots=${SLURM_GPUS_ON_NODE} >> hostfile
-done
-
-master_ip=$(srun -n 1 -N 1 --gpus=1 -w ${nodes_array[0]} /bin/hostname -I | cut -d " " -f 2)
-
-##### run-benchmark-model.sh Starts here #####
-
-
-BASE_PATH=$PWD/dataset/
+BASE_PATH=/ibex/ai/reference/megatron-deepspeed/dataset/
 DATA_PATH=${BASE_PATH}/BookCorpusDataset_text_document
 DS_CONFIG=ds_config.json
 
@@ -68,14 +22,14 @@ PP=1
 
 # Model: Benchmark model
 NLAYERS=1
-HIDDEN=1024
-HEADS=32
+HIDDEN=12288
+HEADS=96
 SEQ=1024
 
 
 MICRO_BATCH=4
 NODES=${SLURM_NNODES}
-GPN=${SLURM_GPUS_PER_NODE}
+GPN=${SLURM_GPUS_ON_NODE}
 GLOBAL_BATCH=$(( ${GPN} * ${MICRO_BATCH} * ${NODES} ))
 
 # Initial power scale for loss
@@ -142,7 +96,6 @@ cat <<EOT > $DS_CONFIG
 }
 EOT
 
-#export NCCL_DEBUG=warn 
 
 ds_args=" "
 ds_args=" --deepspeed ${ds_args}"
@@ -151,8 +104,9 @@ ds_args=" --deepspeed_config=$DS_CONFIG ${ds_args}"
 ds_args=" --zero-stage=$ZERO_STAGE ${ds_args}"
 ds_args=" --deepspeed-activation-checkpointing ${ds_args}"
 
-args="
-    --tensor-model-parallel-size $TP \
+deepspeed --launcher="SLURM" --num_nodes=${SLURM_NNODES} --num_gpus=${SLURM_GPUS} --launcher_args='--gpus-per-node=1' \
+ --no_ssh_check --hostfile ${HF} --master_addr=${master_ip} --no_local_rank \
+    pretrain_gpt.py --tensor-model-parallel-size $TP \
     --pipeline-model-parallel-size $PP \
     --num-layers $NLAYERS \
     --hidden-size $HIDDEN \
@@ -183,13 +137,9 @@ args="
     --checkpoint-activations \
     --tensorboard-dir $OUTPUT_DIR \
     $CPU_OPTIM $ds_args \
+    --no-masked-softmax-fusion \
+    --no-bias-dropout-fusion \
+    --no-bias-gelu-fusion \
     --exit-interval 5000 
-"
-    #--no-masked-softmax-fusion \
-    #--no-bias-dropout-fusion \
-    #--no-bias-gelu-fusion \
 
-deepspeed --launcher="SLURM" --num_nodes=${SLURM_NNODES} --num_gpus=${SLURM_GPUS} \
- --no_ssh_check --hostfile ${HF} --master_addr=${master_ip} --no_local_rank \
- pretrain_gpt.py $args | tee ${OUTPUT_DIR}/output.log
 
