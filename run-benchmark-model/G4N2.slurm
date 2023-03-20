@@ -2,7 +2,7 @@
 #SBATCH --job-name=g4n1
 #SBATCH --gpus=4
 #SBATCH --gpus-per-node=2
-#SBATCH --nodes=1
+#SBATCH --nodes=2
 #SBATCH --ntasks=4
 #SBATCH --cpus-per-task=4
 #SBATCH --time=00:15:00
