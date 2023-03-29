@@ -47,12 +47,9 @@ for ((i = 0; i < ${SLURM_NNODES}; i++)); do
    echo $node_i slots=${SLURM_GPUS_ON_NODE} >> ${HF}
 done
 
-master_ip=$(srun -n 1 -N 1 --gpus=1 -w ${nodes_array[0]} /bin/hostname -I | cut -d " " -f 2)
+export master_ip=$(srun -n 1 -N 1 --gpus=1 -w ${nodes_array[0]} /bin/hostname -I | cut -d " " -f 2)
+export MASTER_PORT=$(python -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')
 
-
-deepspeed --launcher='slurm' --num_nodes=${SLURM_NNODES} --num_gpus=${SLURM_GPUS}  --hostfile ${HF} --master_addr=${master_ip} \
-	train_bert_ds.py --checkpoint_dir $PWD
-
-
+srun -n ${SLURM_NTASKS} -N ${SLURM_NNODES} python train_bert_ds.py --checkpoint_dir $PWD --num_layers 2 --hidden_dim 512 
 
 

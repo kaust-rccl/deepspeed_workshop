@@ -1,12 +1,13 @@
 #!/bin/bash
 #SBATCH --job-name=g2n2
-#SBATCH --gpus=2
-#SBATCH --gpus-per-node=1
+#SBATCH --gpus=4
+#SBATCH --gpus-per-node=2
 #SBATCH --cpus-per-task=4
-#SBATCH --ntasks=2
+#SBATCH --ntasks=4
 #SBATCH --nodes=2
 #SBATCH --time=00:15:00
-#SBATCH --constraint=v100,gpu_ai
+#SBATCH --constraint=a100
+#SBATCH --reservation=A100
 
 echo "------- JOB Configuration ---------"
 echo "scontrol show job ${SLURM_JOBID}"
@@ -36,7 +37,7 @@ export NCCL_SOCKET_IFNAME=ib0
 export NCCL_NET_GDR_LEVEL=4
 export MAX_JOBS=${SLURM_CPUS_PER_TASK}
 
-HF=hostfile
+HF=hostfile-${SLURM_JOB_NAME}
 rm ${HF}
 nodes=$(scontrol show hostnames "$SLURM_JOB_NODELIST")
 nodes_array=($nodes)
